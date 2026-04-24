@@ -7,6 +7,9 @@ name = "asic-flow"
 version = "0.1.0"
 description = "Config-driven ASIC flow controller for RTL, simulation, synthesis, and quality checks"
 requires-python = ">=3.11"
+dependencies = [
+    "PyYAML>=6.0",
+]
 
 [project.scripts]
 asic-flow = "asic_flow.cli:main"

@@ -12,7 +12,8 @@ It is built around three ideas:
 
 ```text
 asic_flow/
-├── project.toml              # Example manifest
+├── project.toml              # Example TOML manifest
+├── project.yaml              # Example YAML manifest
 ├── project_flows/            # Local custom Python flow plugins
 └── src/asic_flow/
     ├── cli.py                # CLI entry point
@@ -37,6 +38,8 @@ Typical usage:
 ```bash
 PYTHONPATH=src python3 -m asic_flow list
 PYTHONPATH=src python3 -m asic_flow run quality
+PYTHONPATH=src python3 -m asic_flow --manifest project.yaml list
+PYTHONPATH=src python3 -m asic_flow --manifest project.yaml run quality
 PYTHONPATH=src python3 -m asic_flow run --all --dry-run
 ```
 
@@ -50,7 +53,13 @@ asic-flow run quality
 
 ## Manifest Model
 
-The manifest is `project.toml`.
+The runner supports both `TOML` and `YAML` manifests.
+
+- `project.toml`
+- `project.yaml`
+- `project.yml`
+
+`TOML` remains the simpler default. `YAML` support requires `PyYAML`.
 
 ```toml
 [project]
@@ -75,6 +84,32 @@ plugin = "asic_flow.flows.builtin:SimulationFlow"
 commands = [
   ["bash", "-lc", "make sim"],
 ]
+```
+
+Equivalent YAML:
+
+```yaml
+project:
+  name: demo_asic
+
+runtime:
+  workspace_root: work
+  logs_root: logs
+  plugin_paths:
+    - project_flows
+
+flow:
+  - name: rtl
+    plugin: asic_flow.flows.builtin:RTLFlow
+    commands:
+      - ["bash", "-lc", "make rtl"]
+
+  - name: simulation
+    depends_on:
+      - rtl
+    plugin: asic_flow.flows.builtin:SimulationFlow
+    commands:
+      - ["bash", "-lc", "make sim"]
 ```
 
 ## Add A New Flow
@@ -107,7 +142,7 @@ class FormalFlow(BaseFlow):
         self.run_command(["bash", "-lc", "make formal"])
 ```
 
-Then register it in `project.toml`:
+Then register it in your manifest:
 
 ```toml
 [[flow]]
@@ -133,4 +168,4 @@ options = { mode = "saif" }
 - You keep orchestration logic in one place.
 - You can grow from simple shell wrappers to richer Python plugins without changing the runner.
 - Dependencies are explicit, so larger projects stay manageable.
-- The implementation uses only the Python standard library.
+- TOML uses the standard library, and YAML is available through `PyYAML`.

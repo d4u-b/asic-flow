@@ -39,6 +39,32 @@ def _read_toml(path: Path) -> dict[str, Any]:
         return tomllib.load(handle)
 
 
+def _read_yaml(path: Path) -> dict[str, Any]:
+    try:
+        import yaml
+    except ImportError as exc:
+        raise RuntimeError(
+            "YAML manifest support requires PyYAML. Install it with `python3 -m pip install PyYAML`."
+        ) from exc
+
+    with path.open("r", encoding="utf-8") as handle:
+        data = yaml.safe_load(handle)
+    if data is None:
+        return {}
+    if not isinstance(data, dict):
+        raise ValueError("YAML manifest root must be a mapping")
+    return data
+
+
+def _read_manifest(path: Path) -> dict[str, Any]:
+    suffix = path.suffix.lower()
+    if suffix == ".toml":
+        return _read_toml(path)
+    if suffix in {".yaml", ".yml"}:
+        return _read_yaml(path)
+    raise ValueError(f"unsupported manifest format: {path.name}")
+
+
 def _as_list_of_str(name: str, values: Any) -> list[str]:
     if values is None:
         return []
@@ -62,14 +88,14 @@ def _as_commands(values: Any) -> list[list[str]]:
 
 def load_manifest(path: str | Path) -> Manifest:
     manifest_path = Path(path).expanduser().resolve()
-    raw = _read_toml(manifest_path)
+    raw = _read_manifest(manifest_path)
 
     project = raw.get("project", {})
     runtime = raw.get("runtime", {})
     defaults = raw.get("defaults", {})
 
     if not isinstance(project, dict) or not isinstance(runtime, dict) or not isinstance(defaults, dict):
-        raise ValueError("project, runtime, and defaults sections must be TOML tables")
+        raise ValueError("project, runtime, and defaults sections must be mappings")
 
     project_name = project.get("name", manifest_path.stem)
     if not isinstance(project_name, str):
@@ -85,7 +111,7 @@ def load_manifest(path: str | Path) -> Manifest:
 
     env = runtime.get("env", {})
     if not isinstance(env, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in env.items()):
-        raise ValueError("runtime.env must be a table of string values")
+        raise ValueError("runtime.env must be a mapping of string values")
 
     raw_flows = raw.get("flow", [])
     if not isinstance(raw_flows, list):
@@ -118,11 +144,11 @@ def load_manifest(path: str | Path) -> Manifest:
 
         flow_env = entry.get("env", {})
         if not isinstance(flow_env, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in flow_env.items()):
-            raise ValueError(f"flow {name}: env must be a table of string values")
+            raise ValueError(f"flow {name}: env must be a mapping of string values")
 
         options = entry.get("options", {})
         if not isinstance(options, dict):
-            raise ValueError(f"flow {name}: options must be a table")
+            raise ValueError(f"flow {name}: options must be a mapping")
 
         flows[name] = FlowDefinition(
             name=name,
