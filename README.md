@@ -46,11 +46,15 @@ PYTHONPATH=src python3 -m asic_flow run --all --dry-run
 For the included demo, a small `Makefile` is also provided:
 
 ```bash
+make setup
 make list
 make list-details
 make dry-run FLOW=ram_gate
 make ram-demo
 ```
+
+The `setup` target creates `.venv/` and installs the local `asic-flow` CLI in editable mode, so the other `make` targets can call the CLI directly.
+It uses `--system-site-packages` and `pip --no-build-isolation` so local setup can work in restricted environments without downloading build dependencies.
 
 You can also install it as a local CLI:
 

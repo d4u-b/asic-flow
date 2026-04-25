@@ -1,13 +1,17 @@
 PYTHON ?= python3
-PYTHONPATH_VALUE ?= src
+VENV ?= .venv
+VENV_PYTHON := $(VENV)/bin/python
+ASIC_FLOW := $(VENV)/bin/asic-flow
 MANIFEST ?= project.yaml
 FLOW ?= ram_gate
 
-.PHONY: help list list-details dry-run run ram-demo clean-demo
+.PHONY: help venv setup reinstall list list-details dry-run run ram-demo clean-demo
 
 help:
 	@printf '%s\n' \
 		'Demo targets:' \
+		'  make setup                   Create .venv and install the local CLI' \
+		'  make reinstall               Reinstall the local CLI into .venv' \
 		'  make list                    List enabled flows' \
 		'  make list-details            List flows with dependencies and plugins' \
 		'  make dry-run FLOW=ram_gate   Print commands for a flow without executing' \
@@ -15,20 +19,32 @@ help:
 		'  make ram-demo                Run the RAM integration demo flow chain' \
 		'  make clean-demo              Remove generated demo outputs'
 
-list:
-	PYTHONPATH=$(PYTHONPATH_VALUE) $(PYTHON) -m asic_flow --manifest $(MANIFEST) list
+venv:
+	$(PYTHON) -m venv --system-site-packages $(VENV)
 
-list-details:
-	PYTHONPATH=$(PYTHONPATH_VALUE) $(PYTHON) -m asic_flow --manifest $(MANIFEST) list --details
+setup: $(ASIC_FLOW)
 
-dry-run:
-	PYTHONPATH=$(PYTHONPATH_VALUE) $(PYTHON) -m asic_flow --manifest $(MANIFEST) run $(FLOW) --dry-run
+$(ASIC_FLOW): pyproject.toml
+	test -x $(VENV_PYTHON) || $(MAKE) venv
+	$(VENV_PYTHON) -m pip install --no-build-isolation -e .
 
-run:
-	PYTHONPATH=$(PYTHONPATH_VALUE) $(PYTHON) -m asic_flow --manifest $(MANIFEST) run $(FLOW)
+reinstall:
+	$(VENV_PYTHON) -m pip install --no-build-isolation -e .
 
-ram-demo:
-	PYTHONPATH=$(PYTHONPATH_VALUE) $(PYTHON) -m asic_flow --manifest $(MANIFEST) run ram_gate
+list: $(ASIC_FLOW)
+	$(ASIC_FLOW) --manifest $(MANIFEST) list
+
+list-details: $(ASIC_FLOW)
+	$(ASIC_FLOW) --manifest $(MANIFEST) list --details
+
+dry-run: $(ASIC_FLOW)
+	$(ASIC_FLOW) --manifest $(MANIFEST) run $(FLOW) --dry-run
+
+run: $(ASIC_FLOW)
+	$(ASIC_FLOW) --manifest $(MANIFEST) run $(FLOW)
+
+ram-demo: $(ASIC_FLOW)
+	$(ASIC_FLOW) --manifest $(MANIFEST) run ram_gate
 
 clean-demo:
 	rm -rf build/ram filelists reports/ram reports/ram_rtl.txt reports/ram_constraints.txt reports/ram_verify.txt reports/ram_gate.txt
