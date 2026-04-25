@@ -64,3 +64,65 @@ commands = [
   ["bash", "-lc", "mkdir -p \"$REPORT_DIR\" && echo Default power placeholder > \"$REPORT_DIR/power.txt\""],
 ]
 outputs = ["reports/power.txt"]
+
+[[flow]]
+name = "ram_prep"
+plugin = "ram_integration:RamPrepFlow"
+description = "Demo RAM generation and stale-artifact cleanup"
+outputs = [
+  "reports/ram/ram_prep.txt",
+  "reports/ram/generated_rams.txt",
+]
+options = { config = "config/ram_blocks.yaml", generated_root = "build/ram", reports_root = "reports/ram", artifact_manifest = "generated_rams.txt" }
+
+[[flow]]
+name = "ram_collateral"
+plugin = "ram_integration:RamCollateralFlow"
+depends_on = ["ram_prep"]
+description = "Demo RAM filelist regeneration"
+outputs = [
+  "filelists/ram_rtl.f",
+  "filelists/ram_lib.f",
+  "reports/ram/ram_collateral.txt",
+]
+options = { generated_root = "build/ram", filelist_root = "filelists", reports_root = "reports/ram" }
+
+[[flow]]
+name = "ram_rtl"
+plugin = "asic_flow.flows.builtin:RTLFlow"
+depends_on = ["ram_collateral"]
+description = "Placeholder check for RAM instance and CSR RTL updates"
+commands = [
+  ["bash", "-lc", "mkdir -p \"$REPORT_DIR\" && echo Review RAM RTL instance, wiring, and CSR changes for $TOP > \"$REPORT_DIR/ram_rtl.txt\""],
+]
+outputs = ["reports/ram_rtl.txt"]
+
+[[flow]]
+name = "ram_constraints"
+plugin = "asic_flow.flows.builtin:CommandFlow"
+depends_on = ["ram_rtl"]
+description = "Placeholder synthesis constraint update for RAM instances"
+commands = [
+  ["bash", "-lc", "mkdir -p \"$REPORT_DIR\" && echo Update synthesis constraints for RAM macros in $TOP > \"$REPORT_DIR/ram_constraints.txt\""],
+]
+outputs = ["reports/ram_constraints.txt"]
+
+[[flow]]
+name = "ram_verify"
+plugin = "asic_flow.flows.builtin:SimulationFlow"
+depends_on = ["ram_constraints"]
+description = "Placeholder simulation gate for RAM integration"
+commands = [
+  ["bash", "-lc", "mkdir -p \"$REPORT_DIR\" && echo Run RAM integration simulation for $TOP > \"$REPORT_DIR/ram_verify.txt\""],
+]
+outputs = ["reports/ram_verify.txt"]
+
+[[flow]]
+name = "ram_gate"
+plugin = "asic_flow.flows.builtin:QualityCheckFlow"
+depends_on = ["ram_verify"]
+description = "Placeholder signoff gate before manual GitLab commit"
+commands = [
+  ["bash", "-lc", "mkdir -p \"$REPORT_DIR\" && echo RAM integration checks passed for $TOP. Commit to GitLab manually. > \"$REPORT_DIR/ram_gate.txt\""],
+]
+outputs = ["reports/ram_gate.txt"]

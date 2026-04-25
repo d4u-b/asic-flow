@@ -1,0 +1,49 @@
+flow:
+  - name: rtl
+    plugin: asic_flow.flows.builtin:RTLFlow
+    description: Run RTL checks or packaging
+    commands:
+      - ["bash", "-lc", "mkdir -p \"$REPORT_DIR\" && echo RTL check for $TOP > \"$REPORT_DIR/rtl.txt\""]
+    outputs:
+      - reports/rtl.txt
+
+  - name: simulation
+    plugin: asic_flow.flows.builtin:SimulationFlow
+    depends_on:
+      - rtl
+    description: Run simulation regressions
+    commands:
+      - ["bash", "-lc", "mkdir -p \"$REPORT_DIR\" && echo Simulation run for $TOP > \"$REPORT_DIR/simulation.txt\""]
+    outputs:
+      - reports/simulation.txt
+
+  - name: synthesis
+    plugin: asic_flow.flows.builtin:SynthesisFlow
+    depends_on:
+      - rtl
+    description: Run synthesis
+    commands:
+      - ["bash", "-lc", "mkdir -p \"$REPORT_DIR\" && echo Synthesis run for $TOP > \"$REPORT_DIR/synthesis.txt\""]
+    outputs:
+      - reports/synthesis.txt
+
+  - name: quality
+    plugin: asic_flow.flows.builtin:QualityCheckFlow
+    depends_on:
+      - simulation
+      - synthesis
+    description: Run quality and signoff checks
+    commands:
+      - ["bash", "-lc", "mkdir -p \"$REPORT_DIR\" && echo Quality gate for $TOP > \"$REPORT_DIR/quality.txt\""]
+    outputs:
+      - reports/quality.txt
+
+  - name: power
+    plugin: custom_power:PowerFlow
+    depends_on:
+      - synthesis
+    description: Example of a custom Python flow
+    commands:
+      - ["bash", "-lc", "mkdir -p \"$REPORT_DIR\" && echo Default power placeholder > \"$REPORT_DIR/power.txt\""]
+    outputs:
+      - reports/power.txt

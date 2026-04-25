@@ -4,6 +4,8 @@ from asic_flow.flows.base import BaseFlow
 
 
 class PowerFlow(BaseFlow):
+    """Example project-local plugin that writes a simple power report."""
+
     def run(self) -> None:
         mode = self.definition.options.get("mode", "vectorless")
         command = [

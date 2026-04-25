@@ -8,6 +8,8 @@ from typing import Any
 
 @dataclass(slots=True)
 class FlowDefinition:
+    """Normalized configuration for a single flow entry in the manifest."""
+
     name: str
     plugin: str
     description: str = ""
@@ -24,6 +26,8 @@ class FlowDefinition:
 
 @dataclass(slots=True)
 class Manifest:
+    """Resolved project configuration consumed by the executor."""
+
     path: Path
     project_name: str
     project_root: Path
@@ -35,11 +39,15 @@ class Manifest:
 
 
 def _read_toml(path: Path) -> dict[str, Any]:
+    """Load a TOML manifest from disk."""
+
     with path.open("rb") as handle:
         return tomllib.load(handle)
 
 
 def _read_yaml(path: Path) -> dict[str, Any]:
+    """Load a YAML manifest when PyYAML is available."""
+
     try:
         import yaml
     except ImportError as exc:
@@ -57,6 +65,8 @@ def _read_yaml(path: Path) -> dict[str, Any]:
 
 
 def _read_manifest(path: Path) -> dict[str, Any]:
+    """Dispatch to the parser that matches the manifest file extension."""
+
     suffix = path.suffix.lower()
     if suffix == ".toml":
         return _read_toml(path)
@@ -65,7 +75,21 @@ def _read_manifest(path: Path) -> dict[str, Any]:
     raise ValueError(f"unsupported manifest format: {path.name}")
 
 
+def _merge_mapping(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+    """Recursively merge manifest mappings with later values taking precedence."""
+
+    merged = dict(base)
+    for key, value in override.items():
+        if key in merged and isinstance(merged[key], dict) and isinstance(value, dict):
+            merged[key] = _merge_mapping(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
+
+
 def _as_list_of_str(name: str, values: Any) -> list[str]:
+    """Validate a manifest field that must be a list of strings."""
+
     if values is None:
         return []
     if not isinstance(values, list) or not all(isinstance(item, str) for item in values):
@@ -74,6 +98,8 @@ def _as_list_of_str(name: str, values: Any) -> list[str]:
 
 
 def _as_commands(values: Any) -> list[list[str]]:
+    """Validate command arrays as a list of argv-style string lists."""
+
     if values is None:
         return []
     if not isinstance(values, list):
@@ -86,9 +112,47 @@ def _as_commands(values: Any) -> list[list[str]]:
     return commands
 
 
+def _load_manifest_tree(path: Path, stack: tuple[Path, ...] = ()) -> dict[str, Any]:
+    """Load a manifest plus its includes into one raw manifest mapping."""
+
+    resolved = path.resolve()
+    if resolved in stack:
+        chain = " -> ".join(str(item) for item in (*stack, resolved))
+        raise ValueError(f"manifest include cycle detected: {chain}")
+
+    raw = _read_manifest(resolved)
+    include_paths = _as_list_of_str("include", raw.get("include", []))
+
+    merged: dict[str, Any] = {}
+    for include_name in include_paths:
+        child = _load_manifest_tree(resolved.parent / include_name, (*stack, resolved))
+        merged = _merge_mapping(merged, {key: value for key, value in child.items() if key != "flow"})
+        child_flows = child.get("flow", [])
+        if child_flows:
+            merged.setdefault("flow", [])
+            if not isinstance(merged["flow"], list):
+                raise ValueError("merged flow section must be a list")
+            merged["flow"].extend(child_flows)
+
+    merged = _merge_mapping(merged, {key: value for key, value in raw.items() if key not in {"include", "flow"}})
+
+    current_flows = raw.get("flow", [])
+    if current_flows:
+        if not isinstance(current_flows, list):
+            raise ValueError("flow must be an array of tables")
+        merged.setdefault("flow", [])
+        if not isinstance(merged["flow"], list):
+            raise ValueError("merged flow section must be a list")
+        merged["flow"].extend(current_flows)
+
+    return merged
+
+
 def load_manifest(path: str | Path) -> Manifest:
+    """Parse the manifest file and resolve paths relative to the project root."""
+
     manifest_path = Path(path).expanduser().resolve()
-    raw = _read_manifest(manifest_path)
+    raw = _load_manifest_tree(manifest_path)
 
     project = raw.get("project", {})
     runtime = raw.get("runtime", {})
@@ -150,6 +214,8 @@ def load_manifest(path: str | Path) -> Manifest:
         if not isinstance(options, dict):
             raise ValueError(f"flow {name}: options must be a mapping")
 
+        # Each flow is normalized once here so the executor can operate on a
+        # consistent in-memory model without re-validating user input later.
         flows[name] = FlowDefinition(
             name=name,
             plugin=plugin,

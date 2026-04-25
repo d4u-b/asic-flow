@@ -7,6 +7,8 @@ from typing import Any
 
 @dataclass(slots=True)
 class FlowContext:
+    """Runtime state shared by every flow during a single executor run."""
+
     project_name: str
     manifest_path: Path
     project_root: Path
@@ -18,6 +20,8 @@ class FlowContext:
     state: dict[str, Any] = field(default_factory=dict)
 
     def resolve_path(self, value: str | None) -> Path:
+        """Resolve manifest-relative paths against the project root."""
+
         if not value:
             return self.project_root
         candidate = Path(value).expanduser()

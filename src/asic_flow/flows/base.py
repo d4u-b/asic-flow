@@ -10,6 +10,8 @@ from asic_flow.context import FlowContext
 
 
 class BaseFlow(ABC):
+    """Base class for all flow plugins."""
+
     def __init__(self, definition: FlowDefinition, context: FlowContext) -> None:
         self.definition = definition
         self.context = context
@@ -23,6 +25,8 @@ class BaseFlow(ABC):
         return self.context.resolve_path(self.definition.workdir)
 
     def build_env(self) -> dict[str, str]:
+        """Merge host, runtime, and flow-specific variables for subprocesses."""
+
         env = dict(os.environ)
         env.update(self.context.env)
         env.update(self.context.project_env)
@@ -35,6 +39,8 @@ class BaseFlow(ABC):
         return env
 
     def run_command(self, command: list[str]) -> None:
+        """Print the command and optionally execute it in the flow working directory."""
+
         printable = " ".join(command)
         print(f"[{self.name}] {printable}")
         if self.context.dry_run:

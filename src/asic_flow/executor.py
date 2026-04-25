@@ -8,6 +8,8 @@ from asic_flow.registry import add_plugin_paths, load_flow_class
 
 
 class FlowExecutor:
+    """Run enabled flows in dependency order using the configured plugins."""
+
     def __init__(self, manifest: Manifest, dry_run: bool = False) -> None:
         self.manifest = manifest
         self.context = FlowContext(
@@ -23,9 +25,13 @@ class FlowExecutor:
         add_plugin_paths(manifest.plugin_paths)
 
     def list_flows(self) -> list[FlowDefinition]:
+        """Return only flows that are currently enabled."""
+
         return [flow for flow in self.manifest.flows.values() if flow.enabled]
 
     def run(self, targets: Iterable[str]) -> None:
+        """Create runtime directories and execute each requested flow once."""
+
         self.context.workspace_root.mkdir(parents=True, exist_ok=True)
         self.context.logs_root.mkdir(parents=True, exist_ok=True)
         visited: set[str] = set()
@@ -34,6 +40,8 @@ class FlowExecutor:
             self._run_one(name, visited, active)
 
     def _run_one(self, name: str, visited: set[str], active: set[str]) -> None:
+        """Depth-first execution with cycle detection for dependencies."""
+
         if name in visited:
             return
         if name in active:
@@ -48,6 +56,8 @@ class FlowExecutor:
 
         active.add(name)
         try:
+            # Dependencies run before the requested flow, and `visited` keeps
+            # shared dependencies from executing more than once.
             for dependency in definition.depends_on:
                 self._run_one(dependency, visited, active)
 

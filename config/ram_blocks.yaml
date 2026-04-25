@@ -1,0 +1,8 @@
+# Demo RAM generator input
+rams:
+  - name: icache_ram
+    depth: 1024
+    width: 64
+  - name: dcache_ram
+    depth: 2048
+    width: 64

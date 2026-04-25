@@ -9,6 +9,8 @@ from asic_flow.flows.base import BaseFlow
 
 
 def add_plugin_paths(paths: list[Path]) -> None:
+    """Prepend plugin search paths so project-local flows can be imported."""
+
     for path in reversed(paths):
         value = str(path)
         if value not in sys.path:
@@ -16,6 +18,8 @@ def add_plugin_paths(paths: list[Path]) -> None:
 
 
 def load_flow_class(target: str) -> Type[BaseFlow]:
+    """Import a `module:ClassName` plugin target and validate its type."""
+
     module_name, separator, class_name = target.partition(":")
     if not separator or not class_name:
         raise ValueError(f"invalid plugin target: {target}")

@@ -43,6 +43,15 @@ PYTHONPATH=src python3 -m asic_flow --manifest project.yaml run quality
 PYTHONPATH=src python3 -m asic_flow run --all --dry-run
 ```
 
+For the included demo, a small `Makefile` is also provided:
+
+```bash
+make list
+make list-details
+make dry-run FLOW=ram_gate
+make ram-demo
+```
+
 You can also install it as a local CLI:
 
 ```bash
@@ -112,6 +121,39 @@ flow:
       - ["bash", "-lc", "make sim"]
 ```
 
+You can also split large manifests with `include`. Include paths are resolved
+relative to the manifest that declares them. Included manifests are loaded
+first, and their `flow` entries are appended in include order.
+
+```yaml
+project:
+  name: demo_asic
+
+runtime:
+  plugin_paths:
+    - project_flows
+
+include:
+  - flows/core.yaml
+  - flows/ram.yaml
+```
+
+Example included file:
+
+```yaml
+# flows/ram.yaml
+flow:
+  - name: ram_prep
+    plugin: ram_integration:RamPrepFlow
+
+  - name: ram_verify
+    depends_on:
+      - ram_prep
+    plugin: asic_flow.flows.builtin:SimulationFlow
+    commands:
+      - ["bash", "-lc", "make sim_ram"]
+```
+
 ## Add A New Flow
 
 ### Option 1: command-only flow
@@ -162,6 +204,48 @@ plugin = "custom_power:PowerFlow"
 depends_on = ["synthesis"]
 options = { mode = "saif" }
 ```
+
+## RAM Integration Demo
+
+The repository includes a demo RAM-integration sequence that matches a common SoC workflow:
+
+- update RAM-generation inputs
+- remove stale generated RAM outputs
+- rebuild `.f` filelists for generated RTL and Liberty
+- review RTL, wiring, and CSR changes
+- update synthesis constraints
+- run simulation
+- pass a final gate before a manual commit
+
+The demo plugin lives in `project_flows/ram_integration.py` and exposes:
+
+- `RamPrepFlow`
+- `RamCollateralFlow`
+
+Example run:
+
+```bash
+PYTHONPATH=src python3 -m asic_flow run ram_gate
+```
+
+That run executes:
+
+```text
+ram_prep -> ram_collateral -> ram_rtl -> ram_constraints -> ram_verify -> ram_gate
+```
+
+The Python plugin creates placeholder collateral under:
+
+- `build/ram/`
+- `filelists/`
+- `reports/ram/`
+
+Replace the placeholder logic with your actual RAM compiler command, cleanup rules, and filelist generation once you wire it into your SoC project.
+
+The example `project.yaml` now stays short by including:
+
+- `flows/core.yaml`
+- `flows/ram.yaml`
 
 ## Why this scales
 
